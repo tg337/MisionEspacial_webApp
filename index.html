@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Team Tracker Espacial</title>
+    <style>
+        :root {
+            --bg-dark: #020617;
+            --circle-border: rgba(96, 165, 250, 0.3);
+            --gold: #fbbf24;
+            --gold-glow: rgba(251, 191, 36, 0.5);
+            --text-main: #e2e8f0;
+            --success: #4ade80;
+            --locked: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: radial-gradient(circle at center, #1e293b 0%, var(--bg-dark) 100%);
+            height: 100vh;
+            color: var(--text-main);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- UI SUPERIOR --- */
+        .top-bar {
+            width: 100%;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .icon-btn {
+            font-size: 1.8rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+            filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
+        }
+
+        .icon-btn:active { transform: scale(0.9); }
+        
+        /* El candado cambia de color según estado */
+        #lock-btn.locked { color: var(--locked); opacity: 0.8; }
+        #lock-btn.unlocked { color: var(--success); text-shadow: 0 0 10px var(--success); }
+
+        /* --- CENTRO (CONTADOR) --- */
+        .orbit-container {
+            position: relative;
+            width: 280px;
+            height: 280px;
+            margin: 10px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .orbit-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 1px solid var(--circle-border);
+            border-radius: 50%;
+            animation: rotate 60s linear infinite;
+            pointer-events: none;
+        }
+
+        .center-display {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+            z-index: 5;
+        }
+
+        .big-star {
+            color: var(--gold);
+            font-size: 2.5rem;
+            filter: drop-shadow(0 0 10px var(--gold-glow));
+            margin-bottom: -5px;
+        }
+
+        .total-count {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        /* --- LISTA DE ACTIVIDADES --- */
+        .list-container {
+            flex-grow: 1;
+            width: 100%;
+            max-width: 500px;
+            overflow-y: auto;
+            padding: 0 20px 40px 20px;
+            /* Scroll suave oculto */
+            scrollbar-width: none; 
+        }
+        .list-container::-webkit-scrollbar { display: none; }
+
+        .level-row {
+            display: flex;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            transition: background 0.3s;
+        }
+
+        /* Indicador de "Participado" (Círculo verde) */
+        .check-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            margin-right: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 2px solid transparent;
+        }
+
+        .check-circle.active {
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        .level-name {
+            flex-grow: 1;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+        }
+
+        /* Estrellas de puntuación */
+        .stars-wrapper {
+            display: flex;
+            gap: 8px;
+        }
+
+        .star-toggle {
+            font-size: 1.4rem;
+            color: #475569; /* Apagado */
+            cursor: pointer;
+            transition: color 0.3s, transform 0.2s;
+        }
+
+        .star-toggle.active {
+            color: var(--gold);
+            filter: drop-shadow(0 0 5px var(--gold-glow));
+        }
+
+        /* Efecto de deshabilitado visual cuando no se puede editar */
+        body.readonly .check-circle, 
+        body.readonly .star-toggle {
+            cursor: default;
+            opacity: 0.8;
+        }
+        
+        body.readonly .check-circle:active,
+        body.readonly .star-toggle:active {
+            transform: none;
+        }
+
+        /* --- MODAL DE CONTRASEÑA --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            z-index: 100;
+            display: none; /* Oculto por defecto */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .pin-display {
+            font-size: 2rem;
+            letter-spacing: 10px;
+            margin-bottom: 30px;
+            height: 50px;
+            border-bottom: 2px solid var(--circle-border);
+            min-width: 150px;
+            text-align: center;
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .key {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .key:active { background: rgba(255,255,255,0.3); }
+
+        .close-modal {
+            margin-top: 30px;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-decoration: underline;
+        }
+
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        /* Notificación Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            background: #334155;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body class="readonly"> <div class="top-bar">
+        <div class="icon-btn" onclick="openPinModal()">⚙️</div>
+        <div class="icon-btn locked" id="lock-btn" onclick="toggleLock()">🔒</div>
+    </div>
+
+    <div class="orbit-container">
+        <div class="orbit-ring" style="border-style: dashed; opacity: 0.5;"></div>
+        <div class="orbit-ring" style="width: 70%; height: 70%; animation-direction: reverse;"></div>
+        
+        <div class="center-display">
+            <div class="big-star">⭐</div>
+            <div class="total-count" id="total-stars">0</div>
+        </div>
+    </div>
+
+    <div class="list-container" id="level-list">
+        </div>
+
+    <div class="modal-overlay" id="pin-modal">
+        <div style="margin-bottom: 20px; color: #94a3b8;">INGRESA CÓDIGO</div>
+        <div class="pin-display" id="pin-display"></div>
+        <div class="keypad">
+            <div class="key" onclick="pressKey(1)">1</div>
+            <div class="key" onclick="pressKey(2)">2</div>
+            <div class="key" onclick="pressKey(3)">3</div>
+            <div class="key" onclick="pressKey(4)">4</div>
+            <div class="key" onclick="pressKey(5)">5</div>
+            <div class="key" onclick="pressKey(6)">6</div>
+            <div class="key" onclick="pressKey(7)">7</div>
+            <div class="key" onclick="pressKey(8)">8</div>
+            <div class="key" onclick="pressKey(9)">9</div>
+            <div class="key" style="visibility:hidden"></div>
+            <div class="key" onclick="pressKey(0)">0</div>
+            <div class="key" style="color: #ef4444;" onclick="clearPin()">✕</div>
+        </div>
+        <div class="close-modal" onclick="closePinModal()">Cancelar</div>
+    </div>
+
+    <div class="toast" id="toast">Modo Edición Activado</div>
+
+    <script>
+        // --- DATOS INICIALES ---
+        // Si quieres cambiar los nombres de las actividades, edita esta lista:
+        const defaultLevels = [
+            { name: "Caminata Lunar", completed: false, stars: 0 },
+            { name: "Plasma Estelar", completed: false, stars: 0 },
+            { name: "Cápsula Fénix", completed: false, stars: 0 },
+            { name: "Agujero Negro", completed: false, stars: 0 },
+            { name: "Resplandor", completed: false, stars: 0 },
+            { name: "Multiverso", completed: false, stars: 0 },
+            { name: "Nebulosa", completed: false, stars: 0 },
+            { name: "Supernova", completed: false, stars: 0 }
+        ];
+
+        // Estado de la app
+        let levels = [];
+        let isEditing = false;
+        let currentPin = "";
+        const CORRECT_PIN = "4222";
+
+        // --- INICIALIZACIÓN ---
+        function init() {
+            // Intentar cargar datos guardados
+            const savedData = localStorage.getItem('teamSpaceData');
+            if (savedData) {
+                levels = JSON.parse(savedData);
+            } else {
+                levels = JSON.parse(JSON.stringify(defaultLevels)); // Copia limpia
+            }
+            renderList();
+            updateTotal();
+        }
+
+        // --- RENDERIZADO ---
+        function renderList() {
+            const container = document.getElementById('level-list');
+            container.innerHTML = '';
+
+            levels.forEach((level, index) => {
+                const row = document.createElement('div');
+                row.className = 'level-row';
+
+                // Botón Círculo (Participación)
+                const check = document.createElement('div');
+                check.className = `check-circle ${level.completed ? 'active' : ''}`;
+                check.onclick = () => toggleCompleted(index);
+                
+                // Nombre
+                const name = document.createElement('div');
+                name.className = 'level-name';
+                name.innerText = level.name;
+
+                // Estrellas
+                const starsDiv = document.createElement('div');
+                starsDiv.className = 'stars-wrapper';
+                
+                // Generar 3 estrellas
+                for (let i = 1; i <= 3; i++) {
+                    const s = document.createElement('div');
+                    s.className = `star-toggle ${i <= level.stars ? 'active' : ''}`;
+                    s.innerText = '★';
+                    s.onclick = () => setStars(index, i);
+                    starsDiv.appendChild(s);
+                }
+
+                row.appendChild(check);
+                row.appendChild(name);
+                row.appendChild(starsDiv);
+                container.appendChild(row);
+            });
+        }
+
+        function updateTotal() {
+            // Sumar solo las estrellas (la participación no suma al contador central según tus instrucciones)
+            const total = levels.reduce((acc, curr) => acc + curr.stars, 0);
+            
+            // Animación simple del número
+            const display = document.getElementById('total-stars');
+            display.innerText = total;
+            
+            // Guardar cambios
+            localStorage.setItem('teamSpaceData', JSON.stringify(levels));
+        }
+
+        // --- LÓGICA DE INTERACCIÓN ---
+
+        function toggleCompleted(index) {
+            if (!isEditing) {
+                showToast("Modo solo lectura. Desbloquea primero.");
+                return;
+            }
+            levels[index].completed = !levels[index].completed;
+            renderList();
+            updateTotal();
+        }
+
+        function setStars(index, count) {
+            if (!isEditing) {
+                showToast("Modo solo lectura. Desbloquea primero.");
+                return;
+            }
+            // Si tocas la misma cantidad que ya tienes, se resetea a 0 (toggle off)
+            if (levels[index].stars === count) {
+                levels[index].stars = 0;
+            } else {
+                levels[index].stars = count;
+            }
+            renderList();
+            updateTotal();
+        }
+
+        // --- SISTEMA DE BLOQUEO/DESBLOQUEO ---
+
+        function openPinModal() {
+            if (isEditing) return; // Si ya está editando, el engranaje no hace nada (o podría abrir config)
+            document.getElementById('pin-modal').style.display = 'flex';
+            currentPin = "";
+            updatePinDisplay();
+        }
+
+        function closePinModal() {
+            document.getElementById('pin-modal').style.display = 'none';
+        }
+
+        function pressKey(num) {
+            if (currentPin.length < 4) {
+                currentPin += num;
+                updatePinDisplay();
+            }
+            
+            if (currentPin.length === 4) {
+                setTimeout(checkPin, 200);
+            }
+        }
+
+        function clearPin() {
+            currentPin = "";
+            updatePinDisplay();
+        }
+
+        function updatePinDisplay() {
+            let dots = "";
+            for(let i=0; i<currentPin.length; i++) dots += "•";
+            document.getElementById('pin-display').innerText = dots;
+        }
+
+        function checkPin() {
+            if (currentPin === CORRECT_PIN) {
+                enableEditing();
+                closePinModal();
+            } else {
+                // Vibración o feedback de error
+                const display = document.getElementById('pin-display');
+                display.style.color = "#ef4444";
+                display.style.borderColor = "#ef4444";
+                setTimeout(() => {
+                    currentPin = "";
+                    display.innerText = "";
+                    display.style.color = "white";
+                    display.style.borderColor = "rgba(96, 165, 250, 0.3)";
+                }, 500);
+            }
+        }
+
+        function enableEditing() {
+            isEditing = true;
+            document.body.classList.remove('readonly');
+            
+            // Cambiar icono candado
+            const lockBtn = document.getElementById('lock-btn');
+            lockBtn.classList.remove('locked');
+            lockBtn.classList.add('unlocked');
+            lockBtn.innerText = "🔓";
+            
+            showToast("¡Modo edición habilitado!");
+        }
+
+        function toggleLock() {
+            if (!isEditing) {
+                // Si está bloqueado y tocas el candado
+                showToast("Usa el engranaje para desbloquear");
+                return;
+            }
+            
+            // Bloquear de nuevo
+            isEditing = false;
+            document.body.classList.add('readonly');
+            
+            const lockBtn = document.getElementById('lock-btn');
+            lockBtn.classList.remove('unlocked');
+            lockBtn.classList.add('locked');
+            lockBtn.innerText = "🔒";
+            
+            showToast("Edición bloqueada");
+        }
+
+        // --- UTILIDADES ---
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.opacity = 1;
+            setTimeout(() => t.style.opacity = 0, 2000);
+        }
+
+        // Arrancar
+        init();
+
+    </script>
+</body>
+</html>
